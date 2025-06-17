@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "testcontainers"
-version = "4.10.0" # auto-incremented by release-please
+version = "4.11.0" # auto-incremented by release-please
 description = "Python library for throwaway instances of anything that can run in a Docker container"
 authors = ["Sergey Pirogov <automationremarks@gmail.com>"]
 maintainers = [
@@ -111,7 +111,7 @@ pika = { version = "*", optional = true }
 redis = { version = "*", optional = true }
 selenium = { version = "*", optional = true }
 weaviate-client = { version = "^4.5.4", optional = true }
-chromadb-client = { version = "*", optional = true }
+chromadb-client = { version = "^1.0.0", optional = true }
 qdrant-client = { version = "*", optional = true }
 bcrypt = { version = "*", optional = true }
 httpx = { version = "*", optional = true }
@@ -343,6 +343,11 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ['wrapt.*']
 # wrapt doesn't have type annotations
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ['requests.*']
+# requests doesn't have type annotations
 ignore_missing_imports = true
 
 [build-system]
