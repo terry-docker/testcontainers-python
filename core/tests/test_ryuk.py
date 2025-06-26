@@ -9,7 +9,7 @@ from testcontainers.core.config import testcontainers_config
 from testcontainers.core.container import Reaper
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.utils import is_mac
-from testcontainers.core.waiting_utils import wait_for_logs
+from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
 
 @pytest.mark.skipif(
@@ -31,7 +31,7 @@ def test_wait_for_reaper(monkeypatch: MonkeyPatch):
     assert docker_client.containers.get(container_id) is not None
     assert docker_client.containers.get(reaper_id) is not None
 
-    wait_for_logs(container, "Hello from Docker!")
+    container.waiting_for(LogMessageWaitStrategy("Hello from Docker!"))
 
     Reaper._socket.close()
 
@@ -54,18 +54,18 @@ def test_container_without_ryuk(monkeypatch: MonkeyPatch):
     Reaper.delete_instance()
     monkeypatch.setattr(testcontainers_config, "ryuk_disabled", True)
     with DockerContainer("hello-world") as container:
-        wait_for_logs(container, "Hello from Docker!")
+        container.waiting_for(LogMessageWaitStrategy("Hello from Docker!"))
         assert Reaper._instance is None
 
 
 @pytest.mark.inside_docker_check
 def test_ryuk_is_reused_in_same_process():
     with DockerContainer("hello-world") as container:
-        wait_for_logs(container, "Hello from Docker!")
+        container.waiting_for(LogMessageWaitStrategy("Hello from Docker!"))
         reaper_instance = Reaper._instance
 
     assert reaper_instance is not None
 
     with DockerContainer("hello-world") as container:
-        wait_for_logs(container, "Hello from Docker!")
+        container.waiting_for(LogMessageWaitStrategy("Hello from Docker!"))
         assert reaper_instance is Reaper._instance

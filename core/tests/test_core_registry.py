@@ -15,7 +15,7 @@ from docker.errors import NotFound
 from testcontainers.core.config import testcontainers_config
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.docker_client import DockerClient
-from testcontainers.core.waiting_utils import wait_for_logs
+from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
 from testcontainers.registry import DockerRegistryContainer
 from testcontainers.core.utils import is_mac
@@ -43,7 +43,7 @@ def test_missing_on_private_registry(monkeypatch):
         with pytest.raises(NotFound):
             # Test a container with image from private registry
             with DockerContainer(f"{registry_url}/{image}:{tag}") as test_container:
-                wait_for_logs(test_container, "Hello from Docker!")
+                test_container.waiting_for(LogMessageWaitStrategy("Hello from Docker!"))
 
 
 @pytest.mark.skipif(
@@ -85,7 +85,7 @@ def test_with_private_registry(image, tag, username, password, expected_output, 
 
         # Test a container with image from private registry
         with DockerContainer(f"{registry_url}/{image}:{tag}") as test_container:
-            wait_for_logs(test_container, expected_output)
+            test_container.waiting_for(LogMessageWaitStrategy(expected_output))
 
     # cleanup
     client.images.remove(f"{registry_url}/{image}:{tag}")

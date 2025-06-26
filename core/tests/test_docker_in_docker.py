@@ -16,7 +16,7 @@ from testcontainers.core.container import DockerContainer
 from testcontainers.core.docker_client import DockerClient, LOGGER
 from testcontainers.core.utils import inside_container
 from testcontainers.core.utils import is_mac
-from testcontainers.core.waiting_utils import wait_for_logs
+from testcontainers.core.wait_strategies import LogMessageWaitStrategy, FileExistsWaitStrategy, CompositeWaitStrategy
 
 
 def _wait_for_dind_return_ip(client, dind):
@@ -38,7 +38,7 @@ def _wait_for_dind_return_ip(client, dind):
 
 
 @pytest.mark.skipif(is_mac(), reason="Docker socket forwarding (socat) is unsupported on Docker Desktop for macOS")
-def test_wait_for_logs_docker_in_docker():
+def test_wait_log_message_docker_in_docker():
     # real dind isn't possible (AFAIK) in CI
     # forwarding the socket to a container port is at least somewhat the same
     client = DockerClient()
@@ -58,7 +58,7 @@ def test_wait_for_logs_docker_in_docker():
         docker_client_kw={"environment": {"DOCKER_HOST": docker_host, "DOCKER_CERT_PATH": "", "DOCKER_TLS_VERIFY": ""}},
     ) as container:
         assert container.get_container_host_ip() == docker_host_ip
-        wait_for_logs(container, "Hello from Docker!")
+        container.waiting_for(LogMessageWaitStrategy("Hello from Docker!"))
         stdout, stderr = container.get_logs()
         assert stdout, "There should be something on stdout"
 
@@ -96,7 +96,7 @@ def test_dind_inherits_network():
         assert container.get_docker_client().gateway_ip(container.get_wrapped_container().id) == client.gateway_ip(
             not_really_dind.id
         )
-        wait_for_logs(container, "Hello from Docker!")
+        container.waiting_for(LogMessageWaitStrategy("Hello from Docker!"))
         stdout, stderr = container.get_logs()
         assert stdout, "There should be something on stdout"
 
@@ -208,6 +208,9 @@ def test_dind(python_testcontainer_image: str, tmp_path: Path) -> None:
     cert_dir = tmp_path / "certs"
     dind_name = f"docker_{SESSION_ID}"
     with Network() as network:
+        client_dir = cert_dir / "docker" / "client"
+        ca_file = client_dir / "ca.pem"
+
         with (
             DockerContainer(image="docker:dind", privileged=True)
             .with_name(dind_name)
@@ -216,10 +219,12 @@ def test_dind(python_testcontainer_image: str, tmp_path: Path) -> None:
             .with_env("DOCKER_TLS_VERIFY", "1")
             .with_network(network)
             .with_network_aliases("docker")
+            .waiting_for(
+                CompositeWaitStrategy(
+                    LogMessageWaitStrategy("API listen on"), FileExistsWaitStrategy(ca_file)
+                ).with_startup_timeout(30)
+            )
         ) as dind_container:
-            wait_for_logs(dind_container, "API listen on")
-            client_dir = cert_dir / "docker" / "client"
-            ca_file = client_dir / "ca.pem"
             assert ca_file.is_file()
             try:
                 with (
@@ -245,7 +250,7 @@ def test_dind(python_testcontainer_image: str, tmp_path: Path) -> None:
                 dind_container.exec("chmod -R a+rwX /certs")
 
     # Show what was done inside test
-    with print_surround_header("test_dood results"):
+    with print_surround_header("test_dind results"):
         print(stdout.decode("utf-8", errors="replace"))
         print(stderr.decode("utf-8", errors="replace"))
     assert status["StatusCode"] == 0

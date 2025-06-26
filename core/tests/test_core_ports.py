@@ -47,9 +47,7 @@ def test_docker_container_with_bind_ports(container_port: Union[str, int], host_
 @pytest.mark.parametrize(
     "container_port, host_port",
     [
-        ("0", "8080"),
         ("8080", "abc"),
-        (0, 0),
         (-1, 8080),
         (None, 8080),
     ],
@@ -59,6 +57,32 @@ def test_error_docker_container_with_bind_ports(container_port: Union[str, int],
         container = DockerContainer("alpine:latest")
         container.with_bind_ports(container_port, host_port)
         container.start()
+
+
+@pytest.mark.parametrize(
+    "container_port, host_port",
+    [
+        ("0", "8080"),  # Port 0 means "assign any available port" - this is valid
+        (0, 0),  # Port 0:0 means ephemeral port assignment - this is valid
+    ],
+)
+def test_valid_docker_container_with_bind_ports_port_zero(
+    container_port: Union[str, int], host_port: Optional[Union[str, int]]
+):
+    """Test that port 0 is valid (ephemeral port assignment)."""
+    container = DockerContainer("alpine:latest")
+    container.with_bind_ports(container_port, host_port)
+    container.start()
+
+    # Verify the container started successfully
+    container_id = container._container.id
+    client = container._container.client
+
+    # The container should have port bindings configured
+    port_bindings = client.containers.get(container_id).attrs["HostConfig"]["PortBindings"]
+    assert port_bindings is not None
+
+    container.stop()
 
 
 @pytest.mark.parametrize(
